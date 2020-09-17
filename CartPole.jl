@@ -57,8 +57,11 @@ end
 
 function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
     Δ = Δt/n_inter
+    x_min, x_max = cartp.xlims
+    force::Float64 = f
+    fail = false
     for n in 1:n_inter
-        x´´, θ´´ = ∇CartPole(cartp, f)
+        x´´, θ´´ = ∇CartPole(cartp, force)
 
         # semi implicit euler
         cartp.v += Δ * x´´
@@ -66,11 +69,22 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
 
         cartp.theta_dot += Δ * θ´´
         cartp.theta += Δ * cartp.theta_dot
+
+        # boundaries
+        if cartp.x > x_max || cartp.x < x_min
+            cartp.x = clamp(cartp.x, x_min, x_max)
+            cartp.v = 0
+            force = 0
+            fail = true
+        end
     end
 
-    # if pendulum is up reward = 1
-    r = 0 < cartp.theta && cartp.theta < π ? 1.0 : 0.0
-
+    if fail
+        r = -1.
+    else
+        # if pendulum is up reward = 1
+        r = 0 < cartp.theta && cartp.theta < π ? 1.0 : 0.0
+    end
     return r
 end
 
@@ -92,7 +106,7 @@ function simulate(cartp::CartPole, t1::Float64, f::Float64, n_inter::Int)
 end
 
 
-cartpole = CartPole(0., (-1.,1.), 0., 100., 1., 1., -π/4, 0.)
+cartpole = CartPole(0., (-2.,2.), 0., 10., 1., 1., π/2, 0.)
 plot_cartpole(cartpole)
-anim = simulate(cartpole, 5., 0., 100)
+anim = simulate(cartpole, 10., 0., 100)
 gif(anim, "temp.gif", fps=30)
