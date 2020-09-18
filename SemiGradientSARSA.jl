@@ -68,7 +68,6 @@ end
 function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int;
         t_max, method, success, reset_cp, debug_print, snapshot=0)
-
     opt = Descent()
     bell_loss = 0f0
     snapshots = [(0, deepcopy(agent.Q̂),0., 0.)]
@@ -87,6 +86,8 @@ function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         t = 0
         R = 0f0
         while !done
+            t += 1
+
             force = A * cartpole.mc * 10
             r, done = step!(cartpole, force, Δt, agent.n_inter, method=method)
             r = Float32(r)
@@ -94,11 +95,14 @@ function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
 
             if done
                 bell_loss = r - Q̂(agent, X, A)
+                # println("t: $t X: $X A: $A R: ", r)
             else
                 X´ = state(cartpole)
                 A´ = ϵ_greedy_action(agent, X´)
                 bell_loss = r + agent.γ * Q̂(agent, X´, A´) - Q̂(agent, X, A)
+                # println("t: $t X: $X A: $A R: ", r + agent.γ * Q̂(agent, X´, A´))
             end
+
 
             ps = params(agent.Q̂)
             gs = gradient(ps) do
@@ -114,7 +118,6 @@ function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
                 A = A´
             end
 
-            t += 1
             t > t_max && break
         end
 
@@ -175,4 +178,112 @@ function force(agent::SemiGradientSARSA)
         A = greedy_action(agent, state(cartp))
         return A * cartpole.mc * 10
     end
+end
+
+
+function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
+        N::Int, n_episodes::Int, halfing::Int;
+        t_max, method, success, reset_cp, debug_print, snapshot=0)
+    opt = Descent()
+    bell_loss = 0f0
+    snapshots = [(0, deepcopy(agent.Q̂),0., 0.)]
+    Δt = 1/agent.fps
+
+    for e in 1:n_episodes
+        if e % halfing == 0
+            agent.ϵ /= 2
+            agent.α /= 2
+        end
+
+        reset_cp(cartpole)
+        X = state(cartpole)
+        A = ϵ_greedy_action(agent, X) # ∈ {-1.,1.}
+        done = false
+        t = 1
+        T = t_max
+        R = 0f0
+
+        Rs = [0f0]; Xs = [X]; As = [A]
+        #=
+        reward is stored offset
+        X_0 A_0 _
+        X_1 A_1 R_1
+        ...
+        X_T A_T R_T
+        where R_1 is reward after taking action A_0
+        updates up to X_{T-1} A_{T-1}
+        =#
+        while true
+            if t < T
+                force = A * cartpole.mc * 10
+                r, done = step!(cartpole, force, Δt, agent.n_inter, method=method)
+                r = Float32(r)
+                R = R + r
+                push!(Rs, r)  # store reward
+
+                if done
+                    T = t+1
+                else
+                    X = state(cartpole)
+                    A = ϵ_greedy_action(agent, X)
+                    push!(Xs, X), push!(As, A)
+                end
+            end
+
+            τ = t - N + 1
+
+            if τ ≥ 1
+                # print("t: $t τ: $τ ")
+                G = sum((agent.γ^(i-τ-1)) * Rs[i] for i in τ+1:min(τ+N, T))
+                rewards_used = collect(τ+1:min(τ+N,T))
+                # println("rewards used: ", rewards_used)
+                if τ + N < T
+                    G += agent.γ^N * Q̂(agent, Xs[τ+N], As[τ+N])
+                    # println("bootstrapped: ", τ+N)
+                end
+                # print("X: $(Xs[τ]), A: $(As[τ]) G: $G\n")
+
+                ps = params(agent.Q̂)
+                gs = gradient(ps) do
+                    Q̂(agent, Xs[τ], As[τ])
+                end
+                bell_loss = (G - Q̂(agent, Xs[τ], As[τ]))
+                opt.eta = -agent.α * bell_loss # minus because it is substracted
+
+                Flux.Optimise.update!(opt, ps, gs)
+            end
+            if τ == T-1
+                # println("natural break")
+                break
+            end
+            t += 1
+        end
+
+        if snapshot !=0 && (e % snapshot == 0 || success(t,R))
+            push!(snapshots, (e, deepcopy(agent.Q̂), t/agent.fps, R))
+        end
+
+        debug_print(e, t, R)
+        success(t,R) && break # considered to be solved or available time exceeded
+    end
+
+    if snapshot != 0
+        return snapshots
+    end
+end
+
+function learn_balance_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
+        N::Int, n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
+
+    goal_time = 10_000
+    t_max = 100_000
+    method = :balance
+    reset_cp = reset_balance!
+    debug_print(e, t, R) = println(@sprintf "Episode %d was %d steps (%.2f seconds.)" e t (t/agent.fps) )
+    success(t, R) = t > goal_time
+
+    learn_n_step!(agent, cartpole, N, n_episodes, halfing,
+            t_max=t_max, method=method,
+            reset_cp=reset_cp, success=success,
+            debug_print=debug_print, snapshot=snapshot)
 end
