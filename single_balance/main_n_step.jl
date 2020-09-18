@@ -12,7 +12,7 @@ model = Chain(Dense(4+1, 10, sigmoid), Dense(10, 1))
 agent = SemiGradientSARSA(model=model, α=0.1, ϵ=0.1, γ=0.9)
 
 Random.seed!(1)
-snapshots = learn_balance_n_step!(agent, cartpole, 1, 5000, 2500, snapshot=250)
+snapshots = learn_balance_n_step!(agent, cartpole, 1000, 5000, 2500, snapshot=250)
 
 
 

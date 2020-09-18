@@ -214,12 +214,13 @@ function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
         updates up to X_{T-1} A_{T-1}
         =#
         while true
+            # println("\nt: $t T: $T")
             if t < T
                 force = A * cartpole.mc * 10
                 r, done = step!(cartpole, force, Δt, agent.n_inter, method=method)
                 r = Float32(r)
                 R = R + r
-                push!(Rs, r)  # store reward
+                push!(Rs, r)
 
                 if done
                     T = t+1
@@ -233,7 +234,7 @@ function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
             τ = t - N + 1
 
             if τ ≥ 1
-                # print("t: $t τ: $τ ")
+                # println("t: $t τ: $τ T: $T")
                 G = sum((agent.γ^(i-τ-1)) * Rs[i] for i in τ+1:min(τ+N, T))
                 rewards_used = collect(τ+1:min(τ+N,T))
                 # println("rewards used: ", rewards_used)
@@ -263,7 +264,7 @@ function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
             push!(snapshots, (e, deepcopy(agent.Q̂), t/agent.fps, R))
         end
 
-        debug_print(e, t, R)
+        debug_print(e, T-1, R)
         success(t,R) && break # considered to be solved or available time exceeded
     end
 
