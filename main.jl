@@ -33,3 +33,25 @@ learn_balance!(agent, cartpole, 1000)
 reset_balance!(cartpole)
 anim = simulate(cartpole, 15., force(agent), 100)
 gif(anim, "temp.gif")
+
+
+Random.seed!(1)
+model = Chain(Dense(4+1, 10, sigmoid), Dense(10, 1))
+agent = SemiGradientSARSA(model, 0.1, 0.1, 0.9, [-1., 1.])
+
+reset_balance!(cartpole)
+anim = simulate(cartpole, 15., force(agent), 100; quit_if_done=true)
+gif(anim, "initial.gif")
+
+Random.seed!(1)
+learn_balance!(agent, cartpole, 500)
+
+reset_balance!(cartpole)
+anim = simulate(cartpole, 15., force(agent), 100; quit_if_done=true)
+gif(anim, "500.gif")
+
+learn_balance!(agent, cartpole, 500)
+
+reset_balance!(cartpole)
+anim = simulate(cartpole, 15., force(agent), 100; quit_if_done=true)
+gif(anim, "1000.gif")

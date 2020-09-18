@@ -38,6 +38,11 @@ function Q̂(agent::SemiGradientSARSA, X::Vector{Float32}, A::Float32)::Float32
     return agent.Q̂(vcat(X, A))[1]
 end
 
+function Q̂_star(agent::SemiGradientSARSA, X::Vector{Float32})::Float32
+    A = greedy_action(agent, X)
+    return agent.Q̂(vcat(X, A))[1]
+end
+
 function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole, n_episodes::Int)
     opt = Descent()
     bell_loss = 0f0
