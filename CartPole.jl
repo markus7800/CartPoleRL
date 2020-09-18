@@ -85,19 +85,21 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
         # if pendulum is up reward = 1
         r = 0 < cartp.theta && cartp.theta < π ? 1.0 : 0.0
     end
-    return r
+    return r, fail
 end
 
 
-function simulate(cartp::CartPole, t1::Float64, f::Float64, n_inter::Int)
+function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int)
     anim = Animation()
     Δt = 1/30 # fps
 
     p = plot_cartpole(cartp)
     frame(anim, p)
+    done = false
 
     @showprogress for t in 0:Δt:t1
-        step!(cartp, f, Δt, n_inter)
+        f = !done ? force(cartp) : 0.
+        r, done = step!(cartp, f, Δt, n_inter)
         p = plot_cartpole(cartp)
         frame(anim, p)
     end
@@ -106,7 +108,7 @@ function simulate(cartp::CartPole, t1::Float64, f::Float64, n_inter::Int)
 end
 
 
-cartpole = CartPole(0., (-2.,2.), 0., 10., 1., 1., π/2, 0.)
-plot_cartpole(cartpole)
-anim = simulate(cartpole, 10., 0., 100)
-gif(anim, "temp.gif", fps=30)
+# cartpole = CartPole(0., (-2.,2.), 0., 10., 1., 1., π/2, 0.)
+# plot_cartpole(cartpole)
+# anim = simulate(cartpole, 10., 0., 100)
+# gif(anim, "temp.gif", fps=30)
