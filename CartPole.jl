@@ -99,9 +99,9 @@ end
 
 
 function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
-        quit_if_done=false, termination=:bounds, ylab="")
+        quit_if_done=false, termination=:bounds, ylab="", fps=30)
     anim = Animation()
-    Δt = 1/30 # fps
+    Δt = 1/fps
 
     p = plot_cartpole(cartp)
     xlabel!(@sprintf "%.2f s" 0.)

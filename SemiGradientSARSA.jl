@@ -9,6 +9,19 @@ mutable struct SemiGradientSARSA
     γ::Float32
     actions::Vector{Float32}
     n_inter::Int
+    fps::Int
+
+    function SemiGradientSARSA(;model, α, ϵ, γ, n_inter=100, fps=30)
+        this = new()
+        this.Q̂ = model
+        this.α = α
+        this.ϵ = ϵ
+        this.γ = γ
+        this.actions = [-1f0,1f0]
+        this.n_inter = n_inter
+        this.fps = fps
+        return this
+    end
 end
 
 function reset_balance!(cartp::CartPole)
@@ -45,12 +58,27 @@ function Q̂_star(agent::SemiGradientSARSA, X::Vector{Float32})::Float32
 end
 
 function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
-        n_episodes::Int, halfing::Int=n_episodes; snapshot=0)
+        n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
+
+        t_min = 10_000
+        t_max = 100_000
+        termination = :balance
+        reset! = reset_balance!
+        debug_print(e, t, R) = println(@sprintf "Episode %d was %d steps (%.2f seconds.)" e t (t/agent.fps) )
+
+        learn!(agent, cartpole, n_episodes, halfing,
+                t_min=t_min, t_max=t_max, termination=:balance,
+                reset_cp=reset!, debug_print=debug_print, snapshot=snapshot)
+end
+
+function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
+        n_episodes::Int, halfing::Int;
+        t_min, t_max, termination, reset_cp, debug_print, snapshot=0)
+
     opt = Descent()
     bell_loss = 0f0
     snapshots = [(0, deepcopy(agent.Q̂),0.)]
-    t = 0
-    t_min = 10_000
+    Δt = 1/agent.fps
 
     for e in 1:n_episodes
         if e % halfing == 0
@@ -58,16 +86,18 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
             agent.α /= 2
         end
 
-        reset_balance!(cartpole)
+        reset_cp(cartpole)
         X = state(cartpole)
         A = ϵ_greedy_action(agent, X) # ∈ {-1.,1.}
         done = false
         t = 0
+        R = 0f0
         while !done
             force = A * cartpole.mc * 10
-            r, done = step!(cartpole, force, 1/30, agent.n_inter, termination=:balance)
+            r, done = step!(cartpole, force, Δt, agent.n_inter, termination=termination)
             r = Float32(r)
-            # custom termination
+            R = agent.γ * R + r
+
             if done
                 bell_loss = r - Q̂(agent, X, A)
             else
@@ -78,7 +108,6 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
 
             ps = params(agent.Q̂)
             gs = gradient(ps) do
-                # agent.Q̂(vcat(X, A))
                 Q̂(agent, X, A)
             end
 
@@ -92,15 +121,15 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
             end
 
             t += 1
-            t > 100_000 && break
+            t > t_max && break
         end
 
         if snapshot !=0 && (e % snapshot == 0 || t > t_min)
-            push!(snapshots, (e, deepcopy(agent.Q̂), t/30))
+            push!(snapshots, (e, deepcopy(agent.Q̂), t/agent.fps))
         end
 
-        println(@sprintf "Episode %d was %d steps (%.2f seconds.)" e t (t/30) )
-        t > t_min && break # considered to be solved
+        debug_print(e, t, R)
+        t > t_min && break # considered to be solved or available time exceeded
     end
 
     if snapshot != 0
