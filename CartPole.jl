@@ -99,12 +99,13 @@ end
 
 
 function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
-        quit_if_done=false, termination=:bounds)
+        quit_if_done=false, termination=:bounds, ylab="")
     anim = Animation()
     Δt = 1/30 # fps
 
     p = plot_cartpole(cartp)
     xlabel!(@sprintf "%.2f s" 0.)
+    ylabel!(ylab)
     frame(anim, p)
     done = false
 
@@ -113,6 +114,7 @@ function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
         r, done = step!(cartp, f, Δt, n_inter, termination=termination)
         p = plot_cartpole(cartp)
         xlabel!(@sprintf "%.2f s" t)
+        ylabel!(ylab)
         # annotate!(:topleft, text((@sprintf "%.2f s" t), :left))
         frame(anim, p)
         if done && quit_if_done
