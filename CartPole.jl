@@ -11,7 +11,7 @@ mutable struct CartPole
 
     r::Float64 # pole length
     mp::Float64 # pole mass
-    theta::Float64 # angle w.r.t. x-axis ∈ [0, 2π)
+    theta::Float64 # angle w.r.t. x-axis ∈ (-π, π]
     theta_dot::Float64 # angular velocity
 
 end
@@ -71,6 +71,11 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; t
         cartp.theta_dot += Δ * θ´´
         cartp.theta += Δ * cartp.theta_dot
 
+        if cartp.theta > π
+            cartp.theta -= 2π
+            @assert cartp.theta ≥ -π && cartp.theta ≤ π
+        end
+
         # boundaries
         if cartp.x > x_max || cartp.x < x_min
             cartp.x = clamp(cartp.x, x_min, x_max)
@@ -96,7 +101,6 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; t
     end
     return r, fail
 end
-
 
 function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
         quit_if_done=false, termination=:bounds, ylab="", fps=30)
