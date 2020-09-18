@@ -67,11 +67,11 @@ end
 
 function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int;
-        t_max, termination, success, reset_cp, debug_print, snapshot=0)
+        t_max, method, success, reset_cp, debug_print, snapshot=0)
 
     opt = Descent()
     bell_loss = 0f0
-    snapshots = [(0, deepcopy(agent.Q̂),0.)]
+    snapshots = [(0, deepcopy(agent.Q̂),0., 0.)]
     Δt = 1/agent.fps
 
     for e in 1:n_episodes
@@ -88,9 +88,9 @@ function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         R = 0f0
         while !done
             force = A * cartpole.mc * 10
-            r, done = step!(cartpole, force, Δt, agent.n_inter, termination=termination)
+            r, done = step!(cartpole, force, Δt, agent.n_inter, method=method)
             r = Float32(r)
-            R = agent.γ * R + r
+            R = R + r
 
             if done
                 bell_loss = r - Q̂(agent, X, A)
@@ -119,7 +119,7 @@ function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         end
 
         if snapshot !=0 && (e % snapshot == 0 || success(t,R))
-            push!(snapshots, (e, deepcopy(agent.Q̂), t/agent.fps))
+            push!(snapshots, (e, deepcopy(agent.Q̂), t/agent.fps, R))
         end
 
         debug_print(e, t, R)
@@ -136,15 +136,15 @@ end
 function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
 
-    t_min = 10_000
+    goal_time = 10_000
     t_max = 100_000
-    termination = :balance
+    method = :balance
     reset_cp = reset_balance!
     debug_print(e, t, R) = println(@sprintf "Episode %d was %d steps (%.2f seconds.)" e t (t/agent.fps) )
-    success(t, R) = t > t_min
+    success(t, R) = t > goal_time
 
     learn!(agent, cartpole, n_episodes, halfing,
-            t_max=t_max, termination=:balance,
+            t_max=t_max, method=method,
             reset_cp=reset_cp, success=success,
             debug_print=debug_print, snapshot=snapshot)
 end
@@ -153,12 +153,25 @@ function learn_swingup!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
 
     t_max = 10_000
-    termination = :bounds
+    method = :swingup
     reset_cp = reset_swingup!
+    debug_print(e, t, R) = println(@sprintf "Episode %d yields %.2f reward " e R)
+
+    max_reward = 1/(1-agent.γ) * t_max # but impossible
+
+    swing_up_time = 1_000
+    goal_reward = (t_max-swing_up_time)
+
+    success(t, R) = R > goal_reward
+
+    learn!(agent, cartpole, n_episodes, halfing,
+            t_max=t_max, method=method,
+            reset_cp=reset_cp, success=success,
+            debug_print=debug_print, snapshot=snapshot)
 end
 
 function force(agent::SemiGradientSARSA)
-    function F(cartp::CartPole)
+    function F(cartp::CartPole, t)
         A = greedy_action(agent, state(cartp))
         return A * cartpole.mc * 10
     end

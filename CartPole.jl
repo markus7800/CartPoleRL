@@ -56,7 +56,7 @@ function ∇CartPole(cartp::CartPole, f::Float64)
     return x´´, θ´´
 end
 
-function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; termination=:bounds)
+function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; method)
     Δ = Δt/n_inter
     x_min, x_max = cartp.xlims
     force::Float64 = f
@@ -86,24 +86,30 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; t
     end
 
     fail = false
-    if termination == :bounds
-        fail = bounds
-    elseif termination == :balance
+    if method == :balance
         angle = cartpole.theta < π/4 || cartpole.theta > 3/4*π
         fail = bounds || angle
+    else
+        fail = bounds
     end
 
     if fail
         r = -1.
     else
-        # if pendulum is up reward = 1
-        r = 0 < cartp.theta && cartp.theta < π ? 1.0 : 0.0
+        if method == :balance
+            # if pendulum is up reward = 1
+            r = 0 < cartp.theta && cartp.theta < π ? 1.0 : 0.0
+        elseif method == :swingup
+            r = (sin(cartp.theta) + 1) / 2
+        else
+            r = 0
+        end
     end
     return r, fail
 end
 
 function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
-        quit_if_done=false, termination=:bounds, ylab="", fps=30)
+        quit_if_done=false, method=nothing, ylab="", fps=30)
     anim = Animation()
     Δt = 1/fps
 
@@ -114,8 +120,8 @@ function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
     done = false
 
     @showprogress for t in 0:Δt:t1
-        f = !done ? force(cartp) : 0.
-        r, done = step!(cartp, f, Δt, n_inter, termination=termination)
+        f = !done ? force(cartp, t) : 0.
+        r, done = step!(cartp, f, Δt, n_inter, method=method)
         p = plot_cartpole(cartp)
         xlabel!(@sprintf "%.2f s" t)
         ylabel!(ylab)
