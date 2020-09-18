@@ -1,6 +1,7 @@
 
 using Plots
 using ProgressMeter
+using Printf
 
 mutable struct CartPole
     x::Float64 # cart x position
@@ -23,7 +24,7 @@ function plot_cartpole(cartp::CartPole)
 
     # plot rail
     p = plot([rail_l, rail_r],
-            xlims=(x0-1,x1+1), ylims=(-cartp.r-1,cartp.r+1),
+            xlims=(x0-1,x1+1), ylims=(-cartp.r-.5,cartp.r+.5),
             lc=:black, legend=false, aspect_ratio=:equal)
 
     cart_point = (cartp.x, 0)
@@ -55,11 +56,11 @@ function ∇CartPole(cartp::CartPole, f::Float64)
     return x´´, θ´´
 end
 
-function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
+function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; termination=:bounds)
     Δ = Δt/n_inter
     x_min, x_max = cartp.xlims
     force::Float64 = f
-    fail = false
+    bounds = false
     for n in 1:n_inter
         x´´, θ´´ = ∇CartPole(cartp, force)
 
@@ -75,8 +76,16 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
             cartp.x = clamp(cartp.x, x_min, x_max)
             cartp.v = 0
             force = 0
-            fail = true
+            bounds = true
         end
+    end
+
+    fail = false
+    if termination == :bounds
+        fail = bounds
+    elseif termination == :balance
+        angle = cartpole.theta < π/4 || cartpole.theta > 3/4*π
+        fail = bounds || angle
     end
 
     if fail
@@ -89,18 +98,22 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1)
 end
 
 
-function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int; quit_if_done=false)
+function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
+        quit_if_done=false, termination=:bounds)
     anim = Animation()
     Δt = 1/30 # fps
 
     p = plot_cartpole(cartp)
+    xlabel!(@sprintf "%.2f s" 0.)
     frame(anim, p)
     done = false
 
     @showprogress for t in 0:Δt:t1
         f = !done ? force(cartp) : 0.
-        r, done = step!(cartp, f, Δt, n_inter)
+        r, done = step!(cartp, f, Δt, n_inter, termination=termination)
         p = plot_cartpole(cartp)
+        xlabel!(@sprintf "%.2f s" t)
+        # annotate!(:topleft, text((@sprintf "%.2f s" t), :left))
         frame(anim, p)
         if done && quit_if_done
             break

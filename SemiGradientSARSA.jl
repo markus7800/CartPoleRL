@@ -8,6 +8,7 @@ mutable struct SemiGradientSARSA
     ϵ::Float64
     γ::Float32
     actions::Vector{Float32}
+    n_inter::Int
 end
 
 function reset_balance!(cartp::CartPole)
@@ -43,11 +44,20 @@ function Q̂_star(agent::SemiGradientSARSA, X::Vector{Float32})::Float32
     return agent.Q̂(vcat(X, A))[1]
 end
 
-function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole, n_episodes::Int)
+function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
+        n_episodes::Int, halfing::Int=n_episodes; snapshot=0)
     opt = Descent()
     bell_loss = 0f0
+    snapshots = [(0, deepcopy(agent.Q̂),0.)]
+    t = 0
+    t_min = 10_000
 
     for e in 1:n_episodes
+        if e % halfing == 0
+            agent.ϵ /= 2
+            agent.α /= 2
+        end
+
         reset_balance!(cartpole)
         X = state(cartpole)
         A = ϵ_greedy_action(agent, X) # ∈ {-1.,1.}
@@ -55,13 +65,10 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole, n_episodes
         t = 0
         while !done
             force = A * cartpole.mc * 10
-            r, = step!(cartpole, force, 1/30, 10)
+            r, done = step!(cartpole, force, 1/30, agent.n_inter, termination=:balance)
             r = Float32(r)
             # custom termination
-            if cartpole.theta < π/4 || cartpole.theta > 3/4*π
-                r = -1
-                done = true
-
+            if done
                 bell_loss = r - Q̂(agent, X, A)
             else
                 X´ = state(cartpole)
@@ -85,12 +92,19 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole, n_episodes
             end
 
             t += 1
-            if t > 100_000
-                break
-            end
+            t > 100_000 && break
+        end
+
+        if snapshot !=0 && (e % snapshot == 0 || t > t_min)
+            push!(snapshots, (e, deepcopy(agent.Q̂), t/30))
         end
 
         println(@sprintf "Episode %d was %d steps (%.2f seconds.)" e t (t/30) )
+        t > t_min && break # considered to be solved
+    end
+
+    if snapshot != 0
+        return snapshots
     end
 end
 
