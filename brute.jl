@@ -9,7 +9,7 @@ function force(F::Vector{Float64}, aps::Int, fps::Int)
             # @warn "action index to big a: $a, i: $i, t: $t"
             return 0.
         end
-        println("t: ", (@sprintf "%.4f" t), ", i: $i, a: $a, F: $(F[a])", (@sprintf ", x: %.4f, θ: %.4f" cartp.x cartp.theta))
+        # println("t: ", (@sprintf "%.4f" t), ", i: $i, a: $a, F: $(F[a])", (@sprintf ", x: %.4f, θ: %.4f" cartp.x cartp.theta))
         return F[a] * cartp.mc * 10
     end
 end
@@ -37,7 +37,9 @@ function brute_swingupDFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_int
     cartp_ = deepcopy(cartp)
     for A in [-1, 1]
         F[1] = A
-        b = sim_backtrackDFS(cartp_, F, 0, t_max, fps, aps, n_inter)
+        cartp.x = cartp_.x; cartp.v = cartp_.v;
+        cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+        b = sim_backtrackDFS(cartp, F, 0, t_max, fps, aps, n_inter)
         if b
             return F, true
         end
@@ -45,7 +47,6 @@ function brute_swingupDFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_int
     return F, false
 end
 
-global DEBUG_BACKTRACK = true
 function sim_backtrackDFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
     Δa = 1/aps
     Δt = 1/fps
@@ -94,16 +95,15 @@ end
 function brute_swingupBFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
     @assert fps % aps == 0
 
-    F = zeros(t_max * aps)
-    println("Depth = $(length(F))")
+    # F = zeros(t_max * aps)
+    println("Depth = $(t_max * aps)")
 
     reset_swingup!(cartp)
     cartp_ = deepcopy(cartp)
-    b = sim_backtrackBFS(cartp_, F, 0, t_max, fps, aps, n_inter)
+    F, b = sim_backtrackBFS(cartp_, 0, t_max, fps, aps, n_inter)
     return F, b
 end
 
-global DEBUG_BACKTRACK = true
 function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
     Δa = 1/aps
     Δt = 1/fps
@@ -122,7 +122,7 @@ function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::I
         r, done = step!(cartp, f, Δt, n_inter, method=nothing)
         if done
             DEBUG_BACKTRACK && println(tab * "\t fail.")
-            return false
+            return -1, cartp
         end
     end
     t_ = t + na
@@ -130,10 +130,6 @@ function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::I
     @assert a + 1 == a2 "$a $a2 $t $t_" # action for next time step should be next action
 
     d = max(abs(cartp.v), abs(cartp.theta - π/2), abs(cartp.theta_dot))
-    if d ≤ best
-        global best = d
-        println("best with $d", F)
-    end
     if d ≤ 0.1
         return 1, cartp # goal
     elseif t_ * Δt ≥ t_max
@@ -143,34 +139,52 @@ function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::I
     end
 end
 
-function sim_backtrackBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+function sim_backtrackBFS(cartp::CartPole, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
 
-    a = t ÷ na + 1
+    na = fps÷aps # repeat action na times
+
     cartp_ = deepcopy(cartp)
-    nextstates = []
-    for A in [-1, 1]
+    nextstates = [(1, 1., deepcopy(cartp), [1.]), (1, -1., deepcopy(cartp), [-1.])]
+
+    while length(nextstates) > 0
+        a, A, cartp, F = popfirst!(nextstates)
         F[a] = A
-        cartp.x = cartp_.x; cartp.v = cartp_.v;
-        cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+        t = na * (a-1)
         B, cartp = testBFS(cartp, F, t, t_max, fps, aps, n_inter)
-
         if B == 1
-            return true
+            return F, true
         elseif B == 0
-            push!(nextstates, (A, deepcopy(cartp)))
+            for A´ in [1., -1.]
+                F´ = deepcopy(F)
+                push!(F´, A´)
+                push!(nextstates, (a+1, A´, deepcopy(cartp), F´))
+            end
         end
     end
 
-    t_ = t + na
-    for (A, cartp) in nextstates
-        F[a] = A
-        b = sim_backtrackBFS(cartp, F, t_, t_max, fps, aps, n_inter) # proceed
-        if b
-            return true
-        end
-    end
+    # for A in [-1, 1]
+    #     F[a] = A
+    #     cartp.x = cartp_.x; cartp.v = cartp_.v;
+    #     cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+    #     B, cartp = testBFS(cartp, F, t, t_max, fps, aps, n_inter)
+    #     if B == 1
+    #         return true
+    #     elseif B == 0
+    #         push!(nextstates, (A, deepcopy(cartp)))
+    #     end
+    # end
+    # t_ = t + na
+    # for (A, cartp) in nextstates
+    #     F[a] = A
+    #     F[a+1:end] .= 0
+    #     b = sim_backtrackBFS(cartp, F, t_, t_max, fps, aps, n_inter) # proceed
+    #     if b
+    #         return true
+    #     end
+    # end
 
-    return false
+
+    return [], false
 end
 
 
@@ -179,32 +193,26 @@ cartpole = CartPole(0, (-2.,2.), 0, 10., .5, 1., π/2, 0.)
 
 
 
-brute_swingup(cartpole, 2, 4, 3, 100)
-brute_swingup(cartpole, 2, 30, 3, 100)
+global DEBUG_BACKTRACK = false
 
-@time F, = brute_swingup(cartpole, 10, 30, 3, 100)
+brute_swingupDFS(cartpole, 2, 4, 3, 100)
 
-reset_swingup!(cartpole)
-simulate(cartpole, 3, force(F, 10, 30), 100)
+@time F, = brute_swingupDFS(cartpole, 10, 30, 2, 100)
 
 reset_swingup!(cartpole)
-anim = simulate_animate(cartpole, 3, force(F, 10, 30), 100)
+simulate(cartpole, 2, force(F, 10, 30), 100)
 
+reset_swingup!(cartpole)
+anim = simulate_animate(cartpole, 2, force(F, 10, 30), 100)
 gif(anim, "temp.gif")
 
 
-brute_swingup(cartpole, 2, 30, 3, 100)
+cartpole = CartPole(0, (-2.,2.), 0, 10., 1., 1., π/2, 0.)
 
-F = [-1., 1., -1., -1., -1., 1., -1.]
+brute_swingupBFS(cartpole, 5, 30, 2, 100)
+
+@time G, = brute_swingupBFS(cartpole, 10, 30, 3, 100)
+
 reset_swingup!(cartpole)
-anim = simulate(cartpole, 3, force(F, 2, 30), 100)
-
-# a: 1 f: -100.0 ts: 0.0000:0.4667; x: 0.0000, θ: -1.5708
-#     a: 2 f: 100.0 ts: 0.5000:0.9667; x: -2.0000, θ: -0.8803
-#         a: 3 f: -100.0 ts: 1.0000:1.4667; x: -0.8746, θ: -3.4079
-#             a: 4 f: -100.0 ts: 1.5000:1.9667; x: 0.2051, θ: 2.6128
-#                 a: 5 f: -100.0 ts: 2.0000:2.4667; x: -0.9797, θ: 2.8203
-#                      fail.
-#                 a: 5 f: 100.0 ts: 2.0000:2.4667; x: -1.9986, θ: -0.3926
-#                     a: 6 f: -100.0 ts: 2.5000:2.9667; x: -0.6764, θ: 2.5664
-#                     a: 6 f: 100.0 ts: 2.5000:2.9667; x: 0.5947, θ: 1.8137
+anim = simulate_animate(cartpole, 3, force(G, 10, 30), 100)
+gif(anim, "temp.gif")
