@@ -27,7 +27,7 @@ end
 
 # aps ... actions per second
 # fps ... frames per second
-function brute_swingup(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
+function brute_swingupDFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
     @assert fps % aps == 0
 
     F = zeros(t_max * aps)
@@ -37,7 +37,7 @@ function brute_swingup(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
     cartp_ = deepcopy(cartp)
     for A in [-1, 1]
         F[1] = A
-        b = sim_backtrack(cartp_, F, 0, t_max, fps, aps, n_inter)
+        b = sim_backtrackDFS(cartp_, F, 0, t_max, fps, aps, n_inter)
         if b
             return F, true
         end
@@ -45,9 +45,8 @@ function brute_swingup(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
     return F, false
 end
 
-global best = Inf
-global DEBUG_BACKTRACK = false
-function sim_backtrack(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+global DEBUG_BACKTRACK = true
+function sim_backtrackDFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
     Δa = 1/aps
     Δt = 1/fps
     na = fps÷aps # repeat action na times
@@ -60,7 +59,65 @@ function sim_backtrack(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, 
     tab = "\t"^(a-1)
     DEBUG_BACKTRACK && println(tab * "a: $a f: $f ts: ", (@sprintf "%.4f:%.4f; x: %.4f, θ: %.4f" t*Δt (t*Δt + Δt*(na-1)) cartp.x cartp.theta))
 
-    # apply action aps times
+    # apply action na times
+    for n in 1:na
+        r, done = step!(cartp, f, Δt, n_inter, method=nothing)
+        if done
+            DEBUG_BACKTRACK && println(tab * "\t fail.")
+            return false
+        end
+    end
+    t_ = t + na
+    a2 = Int(t_ ÷ na + 1)
+    @assert a + 1 == a2 "$a $a2 $t $t_" # action for next time step should be next action
+
+    d = max(abs(cartp.v), abs(cartp.theta - π/2), abs(cartp.theta_dot))
+    if d ≤ 0.1
+        return true
+    elseif t_ * Δt ≥ t_max
+        return false
+    else
+        cartp_ = deepcopy(cartp)
+        for A in [-1, 1]
+            F[a+1] = A
+            cartp.x = cartp_.x; cartp.v = cartp_.v;
+            cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+            b = sim_backtrackDFS(cartp, F, t_, t_max, fps, aps, n_inter)
+            if b
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function brute_swingupBFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
+    @assert fps % aps == 0
+
+    F = zeros(t_max * aps)
+    println("Depth = $(length(F))")
+
+    reset_swingup!(cartp)
+    cartp_ = deepcopy(cartp)
+    b = sim_backtrackBFS(cartp_, F, 0, t_max, fps, aps, n_inter)
+    return F, b
+end
+
+global DEBUG_BACKTRACK = true
+function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+    Δa = 1/aps
+    Δt = 1/fps
+    na = fps÷aps # repeat action na times
+
+    a = t ÷ na + 1
+    f = F[a] * cartp.mc * 10
+    @assert f != 0
+
+
+    tab = "\t"^(a-1)
+    DEBUG_BACKTRACK && println(tab * "a: $a F: $(F[1:a]) ts: ", (@sprintf "%.4f:%.4f; x: %.4f, θ: %.4f" t*Δt (t*Δt + Δt*(na-1)) cartp.x cartp.theta))
+
+    # apply action na times
     for n in 1:na
         r, done = step!(cartp, f, Δt, n_inter, method=nothing)
         if done
@@ -78,22 +135,41 @@ function sim_backtrack(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, 
         println("best with $d", F)
     end
     if d ≤ 0.1
-        return true
+        return 1, cartp # goal
     elseif t_ * Δt ≥ t_max
-        # println(tab * "\tθ: ", cartp.theta)
-        return false
+        return -1, cartp # fail
     else
-        cartp_ = deepcopy(cartp)
-        for A in [-1, 1]
-            F[a+1] = A
-            cartp.x = cartp_.x; cartp.v = cartp_.v;
-            cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
-            b = sim_backtrack(cartp, F, t_, t_max, fps, aps, n_inter)
-            if b
-                return true
-            end
+        return 0, cartp # expand
+    end
+end
+
+function sim_backtrackBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+
+    a = t ÷ na + 1
+    cartp_ = deepcopy(cartp)
+    nextstates = []
+    for A in [-1, 1]
+        F[a] = A
+        cartp.x = cartp_.x; cartp.v = cartp_.v;
+        cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+        B, cartp = testBFS(cartp, F, t, t_max, fps, aps, n_inter)
+
+        if B == 1
+            return true
+        elseif B == 0
+            push!(nextstates, (A, deepcopy(cartp)))
         end
     end
+
+    t_ = t + na
+    for (A, cartp) in nextstates
+        F[a] = A
+        b = sim_backtrackBFS(cartp, F, t_, t_max, fps, aps, n_inter) # proceed
+        if b
+            return true
+        end
+    end
+
     return false
 end
 
