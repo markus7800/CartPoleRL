@@ -1,9 +1,12 @@
-include("../CartPole.jl")
-include("../brute.jl")
+include("../CartPole/all.jl")
+include("../solve_swingup_BFS.jl")
 include("../SemiGradientSARSA.jl")
+
+
 using Random
 
-cartpole = CartPole(0, (-1.,1.), 0, 10., 1., 1., π/2, 0.)
+cartpole = CartPole(xlims=(-1.,1.), mc=10., r=1., mp=1., theta=-π/2)
+plot_cartpole(cartpole)
 
 FPS = 30
 APS = 10
@@ -40,3 +43,4 @@ end
 reset_swingup!(cartpole)
 anim = simulate_animate(cartpole, 30, force(F, APS, FPS, agent), N_INTER)
 gif(anim, "single_swingup/swingup.gif")
+gif(anim, "temp.gif")

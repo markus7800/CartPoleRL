@@ -1,4 +1,3 @@
-include("CartPole.jl")
 
 function time_force(F::Vector{Float64}, aps::Int, fps::Int)
     @assert fps % aps == 0
@@ -40,7 +39,6 @@ function testBFS(cartp::CartPole, a::Int, A::Float64, t::Int, t_max::Int, fps::I
     for n in 1:na
         r, done = step!(cartp, f, Δt, n_inter, method=nothing)
         if done
-            DEBUG_BACKTRACK && println(tab * "\t fail.")
             return -1, cartp
         end
     end

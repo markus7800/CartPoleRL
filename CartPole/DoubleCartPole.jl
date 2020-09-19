@@ -164,12 +164,19 @@ function reset_swingup!(cartp::DoubleCartPole)
 end
 
 
-dpc = DoubleCartPole(xlims=(-2.,2.), mc=10., r_1=1., mp_1=1., theta_1=π/4, r_2=1., mp_2=1., theta_2=π/2)
-plot_cartpole(dpc)
-
-reset_balance!(dpc)
-plot_cartpole(dpc)
-
-
-reset_swingup!(dpc)
-plot_cartpole(dpc)
+# dpc = DoubleCartPole(xlims=(-2.,2.), mc=10., r_1=1., mp_1=1., theta_1=π/4, r_2=1., mp_2=1., theta_2=π/2)
+# plot_cartpole(dpc)
+#
+# reset_balance!(dpc)
+# plot_cartpole(dpc)
+#
+#
+# reset_swingup!(dpc)
+# plot_cartpole(dpc)
+#
+# no_force(cp, i, t) = 0.
+#
+# simulate(dpc, 3, no_force, 100)
+#
+# anim = simulate_animate(dpc, 3, no_force, 100)
+# gif(anim, "temp.gif")

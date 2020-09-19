@@ -1,9 +1,10 @@
-include("../CartPole.jl")
-include("../SemiGradientSARSA.jl")
+include("../CartPole/all.jl")
+
 
 using Random
 
-cartpole = CartPole(0, (-2.,2.), 0, 100., 1., 1., π/2, 0.)
+cartpole = CartPole(xlims=(-1.,1.), mc=10., r=1., mp=1., theta=-π/2)
+plot_cartpole(cartpole)
 
 # works for balancing
 Random.seed!(1)

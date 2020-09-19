@@ -1,5 +1,6 @@
 
-function simulate_animate(cartp::CartPole, t1::Int, force::Function, n_inter::Int;
+
+function simulate_animate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
         quit_if_done=false, method=nothing, ylab="", fps=30)
     anim = Animation()
     Δt = 1/fps
@@ -17,7 +18,6 @@ function simulate_animate(cartp::CartPole, t1::Int, force::Function, n_inter::In
         p = plot_cartpole(cartp)
         xlabel!(@sprintf "%.2f s" t)
         ylabel!(ylab)
-        # annotate!(:topleft, text((@sprintf "%.2f s" t), :left))
         frame(anim, p)
         if done && quit_if_done
             break
@@ -27,7 +27,7 @@ function simulate_animate(cartp::CartPole, t1::Int, force::Function, n_inter::In
     return anim
 end
 
-function simulate(cartp::CartPole, t1::Int, force::Function, n_inter::Int;
+function simulate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
         method=nothing, fps=30)
     Δt = 1/fps
 

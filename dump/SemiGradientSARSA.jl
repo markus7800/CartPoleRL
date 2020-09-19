@@ -43,10 +43,6 @@ function state(cartp::CartPole)
     return Float32[cartp.x, cartp.v, cartp.theta, cartp.theta_dot]
 end
 
-function state(cartp::DoubleCartPole)
-    return Float32[cartp.x, cartp.v, cartp.theta_1, cartp.theta_dot_1, cartp.theta_2, cartp.theta_dot_2]
-end
-
 function Q̂(agent::SemiGradientSARSA, X::Vector{Float32}, A::Float32)::Float32
     return agent.Q̂(vcat(X, A))[1]
 end
@@ -56,7 +52,7 @@ function Q̂_star(agent::SemiGradientSARSA, X::Vector{Float32})::Float32
     return agent.Q̂(vcat(X, A))[1]
 end
 
-function learn!(agent::SemiGradientSARSA, cartpole::CartPoles,
+function learn!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int;
         t_max, method, success, reset_cp, debug_print, snapshot=0)
     opt = Descent()
@@ -127,7 +123,7 @@ end
 
 
 
-function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPoles,
+function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
 
     goal_time = 10_000
@@ -143,7 +139,7 @@ function learn_balance!(agent::SemiGradientSARSA, cartpole::CartPoles,
             debug_print=debug_print, snapshot=snapshot)
 end
 
-function learn_swingup!(agent::SemiGradientSARSA, cartpole::CartPoles,
+function learn_swingup!(agent::SemiGradientSARSA, cartpole::CartPole,
         n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
 
     t_max = 10_000
@@ -165,20 +161,14 @@ function learn_swingup!(agent::SemiGradientSARSA, cartpole::CartPoles,
 end
 
 function force(agent::SemiGradientSARSA)
-    function F(cartp::CartPoles, t)
+    function F(cartp::CartPole, t)
         A = greedy_action(agent, state(cartp))
         return A * cartpole.mc * 10
     end
 end
 
 
-
-
-
-
-#================= N STEP ===================#
-
-function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPoles,
+function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
         N::Int, n_episodes::Int, halfing::Int;
         t_max, method, success, reset_cp, debug_print, snapshot=0)
     opt = Descent()
@@ -270,7 +260,7 @@ function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPoles,
     end
 end
 
-function learn_balance_n_step!(agent::SemiGradientSARSA, cartpole::CartPoles,
+function learn_balance_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
         N::Int, n_episodes::Int, halfing::Int=n_episodes+1; snapshot=0)
 
     goal_time = 10_000
