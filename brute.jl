@@ -1,6 +1,6 @@
 include("CartPole.jl")
 
-function force(F::Vector{Float64}, aps::Int, fps::Int)
+function time_force(F::Vector{Float64}, aps::Int, fps::Int)
     @assert fps % aps == 0
     na = fps ÷ aps
     return function force_f(cartp::CartPole, i, t)
@@ -13,7 +13,6 @@ function force(F::Vector{Float64}, aps::Int, fps::Int)
         return F[a] * cartp.mc * 10
     end
 end
-
 
 
 # aps ... actions per second
@@ -95,12 +94,12 @@ end
 
 
 
-cartpole = CartPole(0, (-2.,2.), 0, 10., 1., 1., π/2, 0.)
-
-@time G, = brute_swingupBFS(cartpole, 10, 30, 3, 100)
-
-reset_swingup!(cartpole)
-anim = simulate_animate(cartpole, 3, force(G, 10, 30), 100)
-gif(anim, "temp.gif")
-
-plot(G)
+# cartpole = CartPole(0, (-2.,2.), 0, 10., 1., 1., π/2, 0.)
+#
+# @time G, = brute_swingupBFS(cartpole, 10, 30, 3, 100)
+#
+# reset_swingup!(cartpole)
+# anim = simulate_animate(cartpole, 3, time_force(G, 10, 30), 100)
+# gif(anim, "temp.gif")
+#
+# plot(G)
