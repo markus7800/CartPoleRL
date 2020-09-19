@@ -46,7 +46,7 @@ function brute_swingup(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
 end
 
 global best = Inf
-global DEBUG_BACKTRACK = true
+global DEBUG_BACKTRACK = false
 function sim_backtrack(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
     Δa = 1/aps
     Δt = 1/fps
@@ -86,7 +86,9 @@ function sim_backtrack(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, 
         cartp_ = deepcopy(cartp)
         for A in [-1, 1]
             F[a+1] = A
-            b = sim_backtrack(cartp_, F, t_, t_max, fps, aps, n_inter)
+            cartp.x = cartp_.x; cartp.v = cartp_.v;
+            cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
+            b = sim_backtrack(cartp, F, t_, t_max, fps, aps, n_inter)
             if b
                 return true
             end
@@ -110,7 +112,7 @@ reset_swingup!(cartpole)
 simulate(cartpole, 3, force(F, 10, 30), 100)
 
 reset_swingup!(cartpole)
-anim = simulate_animate(cartpole, 3., force(F, 10, 30), 100)
+anim = simulate_animate(cartpole, 3, force(F, 10, 30), 100)
 
 gif(anim, "temp.gif")
 

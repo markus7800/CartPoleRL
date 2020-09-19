@@ -108,7 +108,7 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; m
     return r, fail
 end
 
-function simulate_animate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
+function simulate_animate(cartp::CartPole, t1::Int, force::Function, n_inter::Int;
         quit_if_done=false, method=nothing, ylab="", fps=30)
     anim = Animation()
     Δt = 1/fps
@@ -119,7 +119,8 @@ function simulate_animate(cartp::CartPole, t1::Float64, force::Function, n_inter
     frame(anim, p)
     done = false
 
-    @showprogress for (i,t) in enumerate(0:Δt:t1)
+    @showprogress for i in 0:t1*fps
+        t = i * Δt
         f = !done ? force(cartp, i, t) : 0.
         r, done = step!(cartp, f, Δt, n_inter, method=method)
         p = plot_cartpole(cartp)
