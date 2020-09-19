@@ -108,7 +108,7 @@ function step!(cartp::CartPole, f::Float64, Δt::Float64=1/30, n_inter::Int=1; m
     return r, fail
 end
 
-function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
+function simulate_animate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
         quit_if_done=false, method=nothing, ylab="", fps=30)
     anim = Animation()
     Δt = 1/fps
@@ -119,8 +119,8 @@ function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
     frame(anim, p)
     done = false
 
-    @showprogress for t in 0:Δt:t1
-        f = !done ? force(cartp, t) : 0.
+    @showprogress for (i,t) in enumerate(0:Δt:t1)
+        f = !done ? force(cartp, i, t) : 0.
         r, done = step!(cartp, f, Δt, n_inter, method=method)
         p = plot_cartpole(cartp)
         xlabel!(@sprintf "%.2f s" t)
@@ -135,8 +135,44 @@ function simulate(cartp::CartPole, t1::Float64, force::Function, n_inter::Int;
     return anim
 end
 
+function simulate(cartp::CartPole, t1::Int, force::Function, n_inter::Int;
+        method=nothing, fps=30)
+    Δt = 1/fps
+
+    done = false
+
+    R = 0
+    T = 0
+    for i in 0:t1*fps
+        t = i * Δt
+        f = !done ? force(cartp, i, t) : 0.
+        r, done = step!(cartp, f, Δt, n_inter, method=method)
+        R += r
+
+        if done
+            T = t
+            break
+        end
+    end
+
+    return R, T
+end
 
 # cartpole = CartPole(0., (-2.,2.), 0., 10., 1., 1., π/2, 0.)
 # plot_cartpole(cartpole)
 # anim = simulate(cartpole, 10., 0., 100)
 # gif(anim, "temp.gif", fps=30)
+
+function reset_balance!(cartp::CartPole)
+    cartp.x = 0
+    cartp.v = 0
+    cartp.theta = π/2
+    cartp.theta_dot = 0
+end
+
+function reset_swingup!(cartp::CartPole)
+    cartp.x = 0
+    cartp.v = 0
+    cartp.theta = -π/2
+    cartp.theta_dot = 0
+end

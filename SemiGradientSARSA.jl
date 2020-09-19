@@ -24,19 +24,6 @@ mutable struct SemiGradientSARSA
     end
 end
 
-function reset_balance!(cartp::CartPole)
-    cartp.x = 0
-    cartp.v = 0
-    cartp.theta = π/2
-    cartp.theta_dot = 0
-end
-
-function reset_swingup!(cartp::CartPole)
-    cartp.x = 0
-    cartp.v = 0
-    cartp.theta = -π/2
-    cartp.theta_dot = 0
-end
 
 
 function greedy_action(agent::SemiGradientSARSA, X::Vector{Float32})
@@ -265,7 +252,7 @@ function learn_n_step!(agent::SemiGradientSARSA, cartpole::CartPole,
         end
 
         debug_print(e, T-1, R)
-        success(t,R) && break # considered to be solved or available time exceeded
+        success(T-1,R) && break # considered to be solved or available time exceeded
     end
 
     if snapshot != 0
