@@ -2,7 +2,7 @@
 function time_force(F::Vector{Float64}, aps::Int, fps::Int)
     @assert fps % aps == 0
     na = fps ÷ aps
-    return function force_f(cartp::CartPole, i, t)
+    return function force_f(cartp, i, t)
         a = Int(i ÷ na + 1)
         if a > length(F)
             # @warn "action index to big a: $a, i: $i, t: $t"
@@ -13,23 +13,29 @@ function time_force(F::Vector{Float64}, aps::Int, fps::Int)
     end
 end
 
+mutable struct BFSSolver
+    best
+    score
+end
 
 # aps ... actions per second
 # fps ... frames per second
 
-function brute_swingupBFS(cartp::CartPole, aps::Int, fps::Int, t_max::Int, n_inter)
+function brute_swingupBFS(cartp::CartPoles, aps::Int, fps::Int, t_max::Int, n_inter; max_depth=Inf)
     @assert fps % aps == 0
 
     # F = zeros(t_max * aps)
     println("Depth = $(t_max * aps)")
 
+    solv = BFSSolver(nothing, Inf)
+
     reset_swingup!(cartp)
     cartp_ = deepcopy(cartp)
-    F, b = sim_backtrackBFS(cartp_, 0, t_max, fps, aps, n_inter)
+    F, b = sim_backtrackBFS(solv, cartp_, 0, t_max, fps, aps, n_inter, max_depth)
     return F, b
 end
 
-function testBFS(cartp::CartPole, a::Int, A::Float64, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+function testBFS(cartp::CartPoles, a::Int, A::Float64, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
     Δa = 1/aps
     Δt = 1/fps
     na = fps÷aps # repeat action na times
@@ -39,23 +45,31 @@ function testBFS(cartp::CartPole, a::Int, A::Float64, t::Int, t_max::Int, fps::I
     for n in 1:na
         r, done = step!(cartp, f, Δt, n_inter, method=nothing)
         if done
-            return -1, cartp
+            return -1, cartp, Inf
         end
     end
 
     t_ = t + na
 
-    d = max(abs(cartp.x), abs(cartp.v), abs(cartp.theta - π/2), abs(cartp.theta_dot))
-    if d ≤ 0.1
-        return 1, cartp # goal
-    elseif t_ * Δt ≥ t_max
-        return -1, cartp # fail
+    if cartp isa CartPole
+        d = max(abs(cartp.x), abs(cartp.v),
+                abs(cartp.theta - π/2), abs(cartp.theta_dot))
     else
-        return 0, cartp # expand
+        d = max(abs(cartp.v),
+                abs(cartp.theta_1 - π/2), abs(cartp.theta_dot_1),
+                abs(cartp.theta_2), abs(cartp.theta_dot_2))
+    end
+    if d ≤ 0.1
+        return 1, cartp, d # goal
+    elseif t_ * Δt ≥ t_max
+        return -1, cartp, d # fail
+    else
+        return 0, cartp, d # expand
     end
 end
 
-function sim_backtrackBFS(cartp::CartPole, t::Int, t_max::Int, fps::Int, aps::Int, n_inter::Int)
+function sim_backtrackBFS(solv::BFSSolver, cartp::CartPoles, t::Int, t_max::Int,
+    fps::Int, aps::Int, n_inter::Int, max_depth=Inf)
 
     na = fps÷aps # repeat action na times
 
@@ -63,16 +77,28 @@ function sim_backtrackBFS(cartp::CartPole, t::Int, t_max::Int, fps::Int, aps::In
     nextstates = [(1, 1., deepcopy(cartp), [1.]), (1, -1., deepcopy(cartp), [-1.])]
 
     depth = 0
+    t0 = time()
 
     while length(nextstates) > 0
         a, A, cartp, F = popfirst!(nextstates)
         F[a] = A
         t = na * (a-1)
-        B, cartp = testBFS(cartp, a, A, t, t_max, fps, aps, n_inter)
+        B, cartp, d = testBFS(cartp, a, A, t, t_max, fps, aps, n_inter)
+        if d < solv.score
+            solv.best = deepcopy(F)
+            solv.score = d
+        end
 
         if a > depth
+            t1 = time()
             depth = a
-            println("Depth: $depth")
+            println("Depth: $depth, ", @sprintf "%.2fs, best: %.4f" (t1-t0) solv.score)
+            t0 = t1
+            if depth > max_depth
+                println("Max depth exceeded...")
+                println("Returning best with d=$(solv.score)")
+                return solv.best, false
+            end
         end
 
         if B == 1
