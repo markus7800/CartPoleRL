@@ -129,7 +129,7 @@ function testBFS(cartp::CartPole, F::Vector{Float64}, t::Int, t_max::Int, fps::I
     a2 = Int(t_ ÷ na + 1)
     @assert a + 1 == a2 "$a $a2 $t $t_" # action for next time step should be next action
 
-    d = max(abs(cartp.v), abs(cartp.theta - π/2), abs(cartp.theta_dot))
+    d = max(abs(cartp.x), abs(cartp.v), abs(cartp.theta - π/2), abs(cartp.theta_dot))
     if d ≤ 0.1
         return 1, cartp # goal
     elseif t_ * Δt ≥ t_max
@@ -146,11 +146,19 @@ function sim_backtrackBFS(cartp::CartPole, t::Int, t_max::Int, fps::Int, aps::In
     cartp_ = deepcopy(cartp)
     nextstates = [(1, 1., deepcopy(cartp), [1.]), (1, -1., deepcopy(cartp), [-1.])]
 
+    depth = 0
+
     while length(nextstates) > 0
         a, A, cartp, F = popfirst!(nextstates)
         F[a] = A
         t = na * (a-1)
         B, cartp = testBFS(cartp, F, t, t_max, fps, aps, n_inter)
+
+        if a > depth
+            depth = a
+            println("Depth: $depth")
+        end
+
         if B == 1
             return F, true
         elseif B == 0
@@ -161,28 +169,6 @@ function sim_backtrackBFS(cartp::CartPole, t::Int, t_max::Int, fps::Int, aps::In
             end
         end
     end
-
-    # for A in [-1, 1]
-    #     F[a] = A
-    #     cartp.x = cartp_.x; cartp.v = cartp_.v;
-    #     cartp.theta = cartp_.theta; cartp.theta_dot = cartp_.theta_dot
-    #     B, cartp = testBFS(cartp, F, t, t_max, fps, aps, n_inter)
-    #     if B == 1
-    #         return true
-    #     elseif B == 0
-    #         push!(nextstates, (A, deepcopy(cartp)))
-    #     end
-    # end
-    # t_ = t + na
-    # for (A, cartp) in nextstates
-    #     F[a] = A
-    #     F[a+1:end] .= 0
-    #     b = sim_backtrackBFS(cartp, F, t_, t_max, fps, aps, n_inter) # proceed
-    #     if b
-    #         return true
-    #     end
-    # end
-
 
     return [], false
 end
@@ -216,3 +202,5 @@ brute_swingupBFS(cartpole, 5, 30, 2, 100)
 reset_swingup!(cartpole)
 anim = simulate_animate(cartpole, 3, force(G, 10, 30), 100)
 gif(anim, "temp.gif")
+
+plot(G)
