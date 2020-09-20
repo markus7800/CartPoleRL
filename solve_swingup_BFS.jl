@@ -16,20 +16,23 @@ end
 mutable struct BFSSolver
     best
     score
+    cartp
 end
 
 # aps ... actions per second
 # fps ... frames per second
 
-function brute_swingupBFS(cartp::CartPoles, aps::Int, fps::Int, t_max::Int, n_inter; max_depth=Inf)
+function brute_swingupBFS(cartp::CartPoles, aps::Int, fps::Int, t_max::Int, n_inter; max_depth=Inf, reset=true)
     @assert fps % aps == 0
 
     # F = zeros(t_max * aps)
     println("Depth = $(t_max * aps)")
 
-    solv = BFSSolver(nothing, Inf)
+    solv = BFSSolver(nothing, Inf, nothing)
 
-    reset_swingup!(cartp)
+    if reset
+        reset_swingup!(cartp)
+    end
     cartp_ = deepcopy(cartp)
     F, b = sim_backtrackBFS(solv, cartp_, 0, t_max, fps, aps, n_inter, max_depth)
     return F, b
@@ -87,6 +90,7 @@ function sim_backtrackBFS(solv::BFSSolver, cartp::CartPoles, t::Int, t_max::Int,
         if d < solv.score
             solv.best = deepcopy(F)
             solv.score = d
+            solv.cartp = deepcopy(cartp)
         end
 
         if a > depth
@@ -97,7 +101,7 @@ function sim_backtrackBFS(solv::BFSSolver, cartp::CartPoles, t::Int, t_max::Int,
             if depth > max_depth
                 println("Max depth exceeded...")
                 println("Returning best with d=$(solv.score)")
-                return solv.best, false
+                return solv, false
             end
         end
 

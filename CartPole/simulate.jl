@@ -28,7 +28,7 @@ function simulate_animate(cartp::CartPoles, t1::Int, force::Function, n_inter::I
 end
 
 function simulate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
-        method=nothing, fps=30)
+        method=nothing, fps=30, quit_if_no_force=false)
     Δt = 1/fps
 
     done = false
@@ -38,6 +38,9 @@ function simulate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
     for i in 0:t1*fps
         t = i * Δt
         f = !done ? force(cartp, i, t) : 0.
+        if quit_if_no_force && f == 0.
+            break
+        end
         r, done = step!(cartp, f, Δt, n_inter, method=method)
         R += r
 
@@ -47,5 +50,5 @@ function simulate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
         end
     end
 
-    return R, T
+    return R, T, cartp
 end
