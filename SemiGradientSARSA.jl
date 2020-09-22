@@ -165,9 +165,9 @@ function learn_swingup!(agent::SemiGradientSARSA, cartpole::CartPoles,
 end
 
 function force(agent::SemiGradientSARSA)
-    function F(cartp::CartPoles, t)
+    function F(cartp::CartPoles, i, t)
         A = greedy_action(agent, state(cartp))
-        return A * cartpole.mc * 10
+        return A * cartp.mc * 10
     end
 end
 

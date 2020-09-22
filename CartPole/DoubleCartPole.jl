@@ -123,7 +123,8 @@ function step!(cartp::DoubleCartPole, f::Float64, Δt::Float64=1/30, n_inter::In
 
     fail = false
     if method == :balance
-        angle = cartpole.theta < π/4 || cartpole.theta > 3/4*π
+        angle = (cartp.theta_1 < π/4 || cartp.theta_1 > 3/4*π) ||
+            (cartp.theta_2 > π/4 || cartp.theta_2 < -π/4)
         fail = bounds || angle
     else
         fail = bounds
