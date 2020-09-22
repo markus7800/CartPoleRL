@@ -127,7 +127,9 @@ function reset_swingup!(cartp::CartPole)
     cartp.theta_dot = 0
 end
 
-# cartpole = CartPole(0., (-2.,2.), 0., 10., 1., 1., π/2, 0.)
+# cartpole = CartPole(xlims=(-1.,1.), mc=10., r=1., mp=1., theta=π/4)
 # plot_cartpole(cartpole)
-# anim = simulate(cartpole, 10., 0., 100)
-# gif(anim, "temp.gif", fps=30)
+# no_force(cp, i, t) = 0.
+#
+# anim = simulate_animate(cartpole, 5, no_force, 100)
+# gif(anim, "singlecartpole.gif", fps=30)

@@ -178,5 +178,5 @@ end
 #
 # simulate(dpc, 3, no_force, 100)
 #
-# anim = simulate_animate(dpc, 3, no_force, 100)
-# gif(anim, "temp.gif")
+# anim = simulate_animate(dpc, 5, no_force, 100)
+# gif(anim, "doublecartpole.gif")
