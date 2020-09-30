@@ -41,6 +41,6 @@ end
 
 
 reset_swingup!(cartpole)
-anim = simulate_animate(cartpole, 30, force(F, APS, FPS, agent), N_INTER)
-gif(anim, "single_swingup/swingup.gif")
+anim = simulate_animate(cartpole, 10, force(F, APS, FPS, agent), N_INTER)
+gif(anim, "single_swingup/swingup10s.gif")
 gif(anim, "temp.gif")
