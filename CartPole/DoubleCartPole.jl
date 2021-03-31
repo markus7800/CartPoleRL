@@ -138,7 +138,8 @@ function step!(cartp::DoubleCartPole, f::Float64, Δt::Float64=1/30, n_inter::In
             r = (0 < cartp.theta_1 && cartp.theta_1 < π) &&
              (-π/2 < cartp.theta_2 && cartp.theta_2 < π/2) ? 1.0 : 0.0
         elseif method == :swingup
-            r = (sin(cartp.theta) + 1) / 2
+            r = cartp.r_1 * sin(cartp.theta_1) + cartp.r_2 * sin(cartp.theta_1+cartp.theta_2)
+            # r = 4π - (abs(cartp.theta_1 - π/2) + abs(cartp.theta_2))
         else
             r = 0
         end

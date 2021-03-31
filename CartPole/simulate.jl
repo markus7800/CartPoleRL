@@ -52,3 +52,32 @@ function simulate(cartp::CartPoles, t1::Int, force::Function, n_inter::Int;
 
     return R, T, cartp
 end
+
+function simulate(cartp::CartPoles, t1::Int, F::Vector, aps::Int, n_inter::Int;
+        method=nothing, fps=30, quit_if_no_force=false)
+    Δt = 1/fps
+    @assert fps % aps == 0
+    na = fps ÷ aps
+
+    done = false
+
+    R = 0
+    T = 0
+    for i in 0:t1*fps
+        t = i * Δt
+        a = Int(i ÷ na + 1)
+        f = !done && a ≤ length(F) ? F[a]*cartp.mc * 10 : 0.
+        if quit_if_no_force && f == 0.
+            break
+        end
+        r, done = step!(cartp, f, Δt, n_inter, method=method)
+        R += r
+
+        if done
+            T = t
+            break
+        end
+    end
+
+    return R, T, cartp
+end
